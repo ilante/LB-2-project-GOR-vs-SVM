@@ -46,7 +46,7 @@ if __name__ == '__main__':
     # name the outfile the same --> id list+'.profile'
     idlist = lines_to_list(infile1)  # containing the id of the file but NOT the extension ".pssm" 
     for ids in idlist:
-        infile = ids.rstrip()+'.pssm'    # removing newlinecharacter, adding necessary extension
+        infile = '/home/um19/project/psiblast_output_all_fasta/'+ ids.rstrip()+'.psiblast.pssm'    # removing newlinecharacter, adding necessary extension
         if os.path.isfile(infile) == True:       # does this file exist?
             ofile = ids.rstrip()+'.profile'    # outifile for each id with correct extension
             profile_list = relevant_lines(infile)
