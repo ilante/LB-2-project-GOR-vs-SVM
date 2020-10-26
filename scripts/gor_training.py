@@ -96,18 +96,20 @@ parser.add_argument('-s', '--secondarystructure', type=str, metavar='', required
 args = parser.parse_args()
 
 if __name__ == '__main__':
-    fastafiles = os.listdir(args.fasta).sort() # Creating list of all fasta files in folder
-    ss_files = os.listdir(args.secondarystructure).sort() # Creating list of all ss structure files
+    fastafiles = os.listdir(args.fasta) # Creating list of all fasta files in folder
+    ss_files = os.listdir(args.secondarystructure) # Creating list of all ss structure files
     # listdir: returns arbitrary order --> need to sort lists before continuing --> MUST .sort()
-    print(type(args.fasta))
-    print(args.secondarystructure)
+    fastafiles.sort()
+    ss_files.sort()
+    # print(type(args.fasta))
+    # print(args.secondarystructure)
     
     '''
     2 lists --> to loop on. Need to call function to loop on both aa and ss list.
     For now print all models. >> to file in cmd line for now.
     '''
     for i in range(len(fastafiles)):
-        train_gor(fastafiles[i], ss_files[i], df_R_H, df_R_E, df_R_C, df_R_count, df_all_SS)
+        train_gor(args.fasta+'/'+fastafiles[i], args.secondarystructure+'/'+ss_files[i], df_R_H, df_R_E, df_R_C, df_R_count, df_all_SS)
 
     print("R_H")
     print(df_R_H)
