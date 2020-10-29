@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/anaconda3/bin/python
 import sys
 
 def lines_to_list(filename):
@@ -9,10 +9,13 @@ def lines_to_list(filename):
         return content_list
 
 
-
 def split_list(filename):
-    ''' Splits a evennumbered list into two lists. id_list contains 
-    all odd items while seq_list contains all even items. Returns the two lists.'''
+    ''' 
+    Splits an evennumbered list into two lists. 
+    id_list contains all odd items while 
+    seq_list contains all even items. 
+    Returns the two lists.
+    '''
     myfastalist = lines_to_list(filename)  #works
     id_list = myfastalist[::2]
     seq_list = myfastalist[1::2]
@@ -66,4 +69,3 @@ if __name__ == '__main__':
     infile = sys.argv[1]
     outfile = sys.argv[2]
     list_to_fasta(infile, outfile)
-
