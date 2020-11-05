@@ -1,6 +1,7 @@
 #!/anaconda3/bin/python
 import sys
 import os
+import glob
 import pandas as pd
 import numpy as np
 import argparse 
@@ -9,46 +10,50 @@ import argparse
 # d1g2ya_.dssp
 # d1g2ya_.fasta from training files.
 
-# win_size = 3 # has to be an odd number pass through argparse later
-# num_rows = win_size*4 #adapts to desired window size
+win_size = 3 # has to be an odd number pass through ARGPARSE later
 
-def make_zero_array():
+def make_zero_array(window_size):
     '''
-    Takes window size and the name of the array as arguments.
+    Takes window size as arguments.
     Makes an array that has as many lines as the win_size and 
     the number of columns is defined by the number of naturally 
     occurring aa in eukaryotes. Returns the array.
     '''
-    array = np.zeros((1,20)) #, dtype= 'float64' is allready default - not necessary to specify!!!
+    array = np.zeros((window_size,20)) #, dtype= 'float64' is allready default - not necessary to specify!!!
     return array
-    
-R_H = make_zero_array()           # generating arrays holding the counts of residue in conformation X --> R_X
-R_E = make_zero_array()
-R_C = make_zero_array()
-R_count = make_zero_array()       # generating array holding the total residue count
-SS_count = make_zero_array()      # generating array holding the total secondary structure count
+
+#############################################################################   
+# Generating arrays holding the counts of residue in conformation X --> R_X #
+#############################################################################   
+
+R_H = make_zero_array(win_size)           
+R_E = make_zero_array(win_size)
+R_C = make_zero_array(win_size)
+R_count = make_zero_array(win_size)       # generating array holding the total residue count
+# Generating smaller array holding the total secondary structure count
+ss_array = np.zeros((1,4)) # array holds total n of R in H, E or C and one cell for the total amount as checksum
 
 def make_frequency_df(zeroarray):
     '''
     Makes dataframe from zero array to better vizualize whats going on.
-    That enables us to index columns by residue name.
+    Enables us to index columns by residue name.
     '''
     header_col = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
-    row_names = ['R_0'] #['#R,H', '#R,E', '#R,C', '#R'] # want to implement using -1 0 1 according to window....
+    # row_names = ['R_0'] #['#R,H', '#R,E', '#R,C', '#R'] # want to implement using -1 0 1 according to window....
 #     freq_array = make_zero_array(win_size)
-    freq_df = pd.DataFrame(data = zeroarray,  columns=header_col, index=row_names)
+    freq_df = pd.DataFrame(data = zeroarray,  columns=header_col) # index=row_names
     return freq_df
 
-''' generating dataframes holding the counts of residue in conformation X --> R_X'''
+###########################################################################################
+# Convertin arrays to dataframes holding the counts of residue in conformation X --> R_X  #
+###########################################################################################
 df_R_H = make_frequency_df(R_H)           
 df_R_E = make_frequency_df(R_E)
 df_R_C = make_frequency_df(R_C)
-df_R_count=make_frequency_df(R_count)
-# df_SS_count = make_frequency_df(SS_count)     
+df_R_count = make_frequency_df(R_count)
 
-''' generating smaller datafram holding the total counts conformations'''
-ss_array = np.zeros((1,3)) # making array holding total n of R in H, E or C
-df_all_SS = pd.DataFrame(data=ss_array, columns=['H', 'E', 'C'], index= ['#S'])
+# generating smaller dataframe holding the total counts conformations
+df_all_SS = pd.DataFrame(data=ss_array, columns=['H', 'E', 'C', 'tot'], index= ['#S'])
 # print("HEC df")
 # print(df_all_SS)
 
@@ -59,65 +64,117 @@ def read_clean_lines(infile1):
         cleanstring = newline_list[1].rstrip()
         return cleanstring
 
-def train_gor(aafile, ssfile, RH, RE, RC, total_R, total_SS):
-    '''
-    Takes fasta and ss from dssp file and dataframes comprising the gor model (RH, RE, RC, total_R and total_SS).
-    Increments corresponding positions according to R and H in each field. Returns the trained GOR model.
-    '''
-    aa_string = read_clean_lines(aafile)
-    print(aa_string)
-    ss_string = read_clean_lines(ssfile)
-    print(ss_string)
 
-    l = len(aa_string)
+def train_gor(profile_infile, ssfile, RH, RE, RC, total_R, total_SS):
+    '''
+    Takes as input: (1) seq profile file (2) fasta like dssp file (3) dataframes comprising the gor model 
+    (RH, RE, RC, total_R and total_SS). The seq profile file (1) is read into np.array. The ss string is 
+    extracted from fasta like dssp file (2). The corresponding positions are incremented according to R 
+    in given conformation in each field. Returns the trained GOR model.
+    '''
+    # Loading profile_infile into np.array, need to indicate range 20 to get rid of last col containing 'nan'
+    profile_arr = np.loadtxt(profile_infile, usecols=range(0,20), dtype=np.float64) 
 
-    for i in range(l):
-        ss = ss_string[i]                   # name of structure at index i
-        aa = aa_string[i]                   # name of residue at index i
-        total_R[aa]+=1                      # Incrementing each df
+    # Creating overhang before and after profile__array accouning for window size!
+    overhang = win_size//2
+    overhang_arr = np.zeros((overhang, 20)) 
+    overhang_profile_arr = np.concatenate((overhang_arr, profile_arr, overhang_arr), axis=0)
+    # print(overhang_profile_arr) 
+
+    ss_string = read_clean_lines(ssfile) # Reads ss string from fastalike file (2)
+    # print(ss_string)                                        
+    
+    rows, cols = profile_arr.shape                  # unpacking tuple using var rows only
+
+    if len(ss_string) != rows:                      # len(ss_string) must be == number of rows in profile_arr
+        print('Error: ', ssfile, 'length not the same as in profile! ')
+        return RH, RE, RC, total_R, total_SS,
+
+    for i in range(rows):
+        # Iterates over the overhang_profile generating new window each time
+        # The window is a slice from index i up to i+window_size 
+        curr_window_arr = overhang_profile_arr[i:(i+win_size)]          # Window arr at index i
+
+        ss = ss_string[i]                   # Holds type of secondary structure at index i
+
+        total_SS['tot'] += 1                # Incrementing cell holding the total number of residues used
+
+        total_R += curr_window_arr          # Incrementing each df by adding the entire window of the profile
         
         if ss == 'H':
-            RH[aa]+=1
-            total_SS[ss]+=1
+            RH += curr_window_arr
+            total_SS[ss] += 1
+
         elif ss == 'E':
-            RE[aa]+=1
-            total_SS[ss]+=1
-        else:                               # so if ss == '-' or ss == 'C' or even if i got some X:
-            RC[aa]+=1
-            total_SS['C']+=1                # If not H or E --> its assigned to 'C' compatible with training and blind files.
+            RE += curr_window_arr
+            total_SS[ss] += 1
+
+        else:                               
+            RC += curr_window_arr
+            total_SS['C'] += 1                # If not H or E --> e.g. '-' its assigned to 'C' compatible with both training and blind files
+        
     return RH, RE, RC, total_R, total_SS
+
 
 # aa_path = '/Users/ila/01-Unibo/02_Lab2/files_lab2_project/all_data/trainingset/fasta/d1g2ya_.fasta'
 # ss_path = '/Users/ila/01-Unibo/02_Lab2/files_lab2_project/all_data/trainingset/dssp/d1g2ya_.dssp'
 
+def listdir_nohidden(path):
+    '''
+    To ignore hidden files from os.listdir.
+    Returns only 'nonhidden files' from directory
+    '''
+    return glob.glob(os.path.join(path, '*'))
+
 parser = argparse.ArgumentParser(description='Train GOR model')
-parser.add_argument('-f', '--fasta', type=str, metavar='', required=True, help='Path to directory containing all fasta files needed for training.')
+parser.add_argument('-p', '--profile', type=str, metavar='', required=True, help='Path to directory containing all profile files needed for training.')
 parser.add_argument('-s', '--secondarystructure', type=str, metavar='', required=True, help='Path to directory containing all secondary structures in fasta-like format needed for training.')
+parser.add_argument('-w', '--winsize', type=int, metavar='', required=True, help='Window size of the sliding window for training the gor molel. Must be **ODD** numbered integer!') # uncomment when done
 args = parser.parse_args()
 
 if __name__ == '__main__':
-    fastafiles = os.listdir(args.fasta) # Creating list of all fasta files in folder
-    ss_files = os.listdir(args.secondarystructure) # Creating list of all ss structure files
+    pro_files = listdir_nohidden(args.profile)                  # Creating list of all fasta files in folder
+    ss_files = listdir_nohidden(args.secondarystructure)      # Creating list of all ss structure files
+
     # listdir: returns arbitrary order --> need to sort lists before continuing --> MUST .sort()
-    fastafiles.sort()
+    pro_files.sort()
     ss_files.sort()
+    # print(pro_files)
+    # print('\n')
+    # print(ss_files)
     # print(type(args.fasta))
     # print(args.secondarystructure)
     
     '''
-    2 lists --> to loop on. Need to call function to loop on both aa and ss list.
-    For now print all models. >> to file in cmd line for now.
+    2 lists --> to loop on. Need to call function to loop on both profile files and ss list.
     '''
-    for i in range(len(fastafiles)):
-        train_gor(args.fasta+'/'+fastafiles[i], args.secondarystructure+'/'+ss_files[i], df_R_H, df_R_E, df_R_C, df_R_count, df_all_SS)
-
-    print("R_H")
-    print(df_R_H)
+    # print("********"+'\n', pro_files)
+    for i in range(len(pro_files)):
+        train_gor(pro_files[i], ss_files[i], df_R_H, df_R_E, df_R_C, df_R_count, df_all_SS)
+    
+    # Dividing each field of each matrix by the total ammount of residues used in the training
+    probabilities_H = df_R_H/float(df_all_SS['tot'])
+    probabilities_E = df_R_E/float(df_all_SS['tot'])
+    probabilities_C = df_R_C/float(df_all_SS['tot'])
+    marginal_prob_R = df_R_count/float(df_all_SS['tot'])
+    marginal_prob_ss = df_all_SS/float(df_all_SS['tot'])
+    
+    print('\n')
+    print("R_H") 
+    print(probabilities_H)
+    print('\n')
     print("R_E")
-    print(df_R_E)
+    print(probabilities_E)
+    print('\n')
     print("R_C")
-    print(df_R_C)
-    print("total Residue count")
-    print(df_R_count)
-    print('Conformation counts')
-    print(df_all_SS)
+    print(probabilities_C)
+    print('\n')
+    print("Marginal probablilities of residues")
+    print(marginal_prob_R)
+    print('\n')
+    print('Marginal probability of conformations')
+
+    # print("HEC ****** count")
+    # print(df_all_SS)
+    print(marginal_prob_ss)
+    print('\n')
