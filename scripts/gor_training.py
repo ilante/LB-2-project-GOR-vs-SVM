@@ -10,7 +10,7 @@ import argparse
 # d1g2ya_.dssp
 # d1g2ya_.fasta from training files.
 
-win_size = 3 # has to be an odd number pass through ARGPARSE later
+# win_size = 3 # has to be an odd number pass through ARGPARSE later
 
 def make_zero_array(window_size):
     '''
@@ -22,16 +22,6 @@ def make_zero_array(window_size):
     array = np.zeros((window_size,20)) #, dtype= 'float64' is allready default - not necessary to specify!!!
     return array
 
-#############################################################################   
-# Generating arrays holding the counts of residue in conformation X --> R_X #
-#############################################################################   
-
-R_H = make_zero_array(win_size)           
-R_E = make_zero_array(win_size)
-R_C = make_zero_array(win_size)
-R_count = make_zero_array(win_size)       # generating array holding the total residue count
-# Generating smaller array holding the total secondary structure count
-ss_array = np.zeros((1,4)) # array holds total n of R in H, E or C and one cell for the total amount as checksum
 
 def make_frequency_df(zeroarray):
     '''
@@ -40,22 +30,10 @@ def make_frequency_df(zeroarray):
     '''
     header_col = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
     # row_names = ['R_0'] #['#R,H', '#R,E', '#R,C', '#R'] # want to implement using -1 0 1 according to window....
-#     freq_array = make_zero_array(win_size)
+    #     freq_array = make_zero_array(win_size)
     freq_df = pd.DataFrame(data = zeroarray,  columns=header_col) # index=row_names
     return freq_df
 
-###########################################################################################
-# Convertin arrays to dataframes holding the counts of residue in conformation X --> R_X  #
-###########################################################################################
-df_R_H = make_frequency_df(R_H)           
-df_R_E = make_frequency_df(R_E)
-df_R_C = make_frequency_df(R_C)
-df_R_count = make_frequency_df(R_count)
-
-# generating smaller dataframe holding the total counts conformations
-df_all_SS = pd.DataFrame(data=ss_array, columns=['H', 'E', 'C', 'tot'], index= ['#S'])
-# print("HEC df")
-# print(df_all_SS)
 
 def read_clean_lines(infile1):
     ''' Reads all lines from a file. Returns string of second line. The '\n' is stripped.'''
@@ -65,7 +43,7 @@ def read_clean_lines(infile1):
         return cleanstring
 
 
-def train_gor(profile_infile, ssfile, RH, RE, RC, total_R, total_SS):
+def train_gor(profile_infile, ssfile, RH, RE, RC, total_R, total_SS, win_size):
     '''
     Takes as input: (1) seq profile file (2) fasta like dssp file (3) dataframes comprising the gor model 
     (RH, RE, RC, total_R and total_SS). The seq profile file (1) is read into np.array. The ss string is 
@@ -116,9 +94,6 @@ def train_gor(profile_infile, ssfile, RH, RE, RC, total_R, total_SS):
     return RH, RE, RC, total_R, total_SS
 
 
-# aa_path = '/Users/ila/01-Unibo/02_Lab2/files_lab2_project/all_data/trainingset/fasta/d1g2ya_.fasta'
-# ss_path = '/Users/ila/01-Unibo/02_Lab2/files_lab2_project/all_data/trainingset/dssp/d1g2ya_.dssp'
-
 def listdir_nohidden(path):
     '''
     To ignore hidden files from os.listdir.
@@ -132,9 +107,16 @@ parser.add_argument('-s', '--secondarystructure', type=str, metavar='', required
 parser.add_argument('-w', '--winsize', type=int, metavar='', required=True, help='Window size of the sliding window for training the gor molel. Must be **ODD** numbered integer!') # uncomment when done
 args = parser.parse_args()
 
+
 if __name__ == '__main__':
-    pro_files = listdir_nohidden(args.profile)                  # Creating list of all fasta files in folder
+    
+    # 2 lists --> to loop on. Need to call function to loop on both profile files and ss list.
+    pro_files = listdir_nohidden(args.profile)                # Creating list of all fasta files in folder
     ss_files = listdir_nohidden(args.secondarystructure)      # Creating list of all ss structure files
+    win_size = args.winsize
+    if win_size%2 == 0:                                       # Break it if entered number not odd
+        sys.exit("Error: Window size must be an odd number!!!")
+
 
     # listdir: returns arbitrary order --> need to sort lists before continuing --> MUST .sort()
     pro_files.sort()
@@ -145,12 +127,33 @@ if __name__ == '__main__':
     # print(type(args.fasta))
     # print(args.secondarystructure)
     
-    '''
-    2 lists --> to loop on. Need to call function to loop on both profile files and ss list.
-    '''
+    #############################################################################   
+    # Generating arrays holding the counts of residue in conformation X --> R_X #
+    #############################################################################   
+    R_H = make_zero_array(win_size)           
+    R_E = make_zero_array(win_size)
+    R_C = make_zero_array(win_size)
+    R_count = make_zero_array(win_size)       # generating array holding the total residue count
+    # Generating smaller array holding the total secondary structure count
+    ss_array = np.zeros((1,4)) # array holds total n of R in H, E or C and one cell for the total amount as checksum
+
+    ###########################################################################################
+    # Convertin arrays to dataframes holding the counts of residue in conformation X --> R_X  #
+    ###########################################################################################
+    df_R_H = make_frequency_df(R_H)           
+    df_R_E = make_frequency_df(R_E)
+    df_R_C = make_frequency_df(R_C)
+    df_R_count = make_frequency_df(R_count)
+
+    # generating smaller dataframe holding the total counts conformations
+    df_all_SS = pd.DataFrame(data=ss_array, columns=['H', 'E', 'C', 'tot'], index= ['#S'])
+    # print("HEC df")
+    # print(df_all_SS)
+    
+    
     # print("********"+'\n', pro_files)
     for i in range(len(pro_files)):
-        train_gor(pro_files[i], ss_files[i], df_R_H, df_R_E, df_R_C, df_R_count, df_all_SS)
+        train_gor(pro_files[i], ss_files[i], df_R_H, df_R_E, df_R_C, df_R_count, df_all_SS, win_size)
     
     # Dividing each field of each matrix by the total ammount of residues used in the training
     probabilities_H = df_R_H/float(df_all_SS['tot'])
