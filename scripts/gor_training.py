@@ -11,6 +11,9 @@ pd.set_option('display.max_colwidth', None)
 from IPython.display import display
 import numpy as np
 import argparse 
+import time
+
+start_time = time.time()
 
 '''For the first try: Make function: Takes fasta and dssp sequence as parameters as input.'''
 # d1g2ya_.dssp
@@ -191,3 +194,9 @@ if __name__ == '__main__':
     
     display(marginal_prob_ss)
     print('\n')
+    
+    # print(time.clock())
+    
+    
+    print("--- %s seconds ---" % (time.time() - start_time))
+    
