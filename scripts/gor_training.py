@@ -3,6 +3,12 @@ import sys
 import os
 import glob
 import pandas as pd
+# To ensure that non of the outputs are truncated with '...'
+pd.set_option('display.max_rows', None)
+pd.set_option('display.max_columns', None)
+pd.set_option('display.width', None)
+pd.set_option('display.max_colwidth', None)
+from IPython.display import display
 import numpy as np
 import argparse 
 
@@ -65,8 +71,9 @@ def train_gor(profile_infile, ssfile, RH, RE, RC, total_R, total_SS, win_size):
     rows, cols = profile_arr.shape                  # unpacking tuple using var rows only
 
     if len(ss_string) != rows:                      # len(ss_string) must be == number of rows in profile_arr
-        print('Error: ', ssfile, 'length not the same as in profile! ')
-        return RH, RE, RC, total_R, total_SS,
+        print('Error: length not the same as in profile! ', ssfile)
+        print('Error: length not the same as in ss file! ', profile_infile)
+        return RH, RE, RC, total_R, total_SS
 
     for i in range(rows):
         # Iterates over the overhang_profile generating new window each time
@@ -140,6 +147,7 @@ if __name__ == '__main__':
     ###########################################################################################
     # Convertin arrays to dataframes holding the counts of residue in conformation X --> R_X  #
     ###########################################################################################
+    # pd.set_option('display.max_colwidth', None)
     df_R_H = make_frequency_df(R_H)           
     df_R_E = make_frequency_df(R_E)
     df_R_C = make_frequency_df(R_C)
@@ -161,23 +169,25 @@ if __name__ == '__main__':
     probabilities_C = df_R_C/float(df_all_SS['tot'])
     marginal_prob_R = df_R_count/float(df_all_SS['tot'])
     marginal_prob_ss = df_all_SS/float(df_all_SS['tot'])
-    
+
     print('\n')
     print("R_H") 
-    print(probabilities_H)
+    display(probabilities_H)
+    
     print('\n')
     print("R_E")
-    print(probabilities_E)
+    display(probabilities_E)
+    
     print('\n')
     print("R_C")
-    print(probabilities_C)
+    display(probabilities_C)
     print('\n')
+    
     print("Marginal probablilities of residues")
-    print(marginal_prob_R)
+    display(marginal_prob_R)
+
     print('\n')
     print('Marginal probability of conformations')
-
-    # print("HEC ****** count")
-    # print(df_all_SS)
-    print(marginal_prob_ss)
+    
+    display(marginal_prob_ss)
     print('\n')
