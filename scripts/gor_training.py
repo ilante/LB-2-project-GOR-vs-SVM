@@ -8,8 +8,9 @@ pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
 pd.set_option('display.max_colwidth', None)
-from IPython.display import display
 import numpy as np
+# Rendering nicer tables
+from IPython.display import display
 import argparse 
 import time
 
@@ -71,7 +72,7 @@ def train_gor(profile_infile, ssfile, RH, RE, RC, total_R, total_SS, win_size):
     ss_string = read_clean_lines(ssfile) # Reads ss string from fastalike file (2)
     # print(ss_string)                                        
     
-    rows, cols = profile_arr.shape                  # unpacking tuple using var rows only
+    rows = profile_arr.shape[0]                  #  tuple --> using var rows only = index 0
 
     if len(ss_string) != rows:                      # len(ss_string) must be == number of rows in profile_arr
         print('Error: length not the same as in profile! ', ssfile)
@@ -108,13 +109,15 @@ def listdir_nohidden(path):
     '''
     To ignore hidden files from os.listdir.
     Returns only 'nonhidden files' from directory
+    --> the glob pattern * matches all files that are NOT hidden
     '''
     return glob.glob(os.path.join(path, '*'))
 
 parser = argparse.ArgumentParser(description='Train GOR model')
 parser.add_argument('-p', '--profile', type=str, metavar='', required=True, help='Path to directory containing all profile files needed for training.')
 parser.add_argument('-s', '--secondarystructure', type=str, metavar='', required=True, help='Path to directory containing all secondary structures in fasta-like format needed for training.')
-parser.add_argument('-w', '--winsize', type=int, metavar='', required=True, help='Window size of the sliding window for training the gor molel. Must be **ODD** numbered integer!') # uncomment when done
+parser.add_argument('-w', '--winsize', type=int, metavar='', required=True, help='Window size of the sliding window for training the gor molel. Must be **ODD** numbered integer!') 
+parser.add_argument('-o', '--output', type=str, metavar='', required=True, help='Path to training output directory.')
 args = parser.parse_args()
 
 
@@ -124,6 +127,7 @@ if __name__ == '__main__':
     pro_files = listdir_nohidden(args.profile)                # Creating list of all fasta files in folder
     ss_files = listdir_nohidden(args.secondarystructure)      # Creating list of all ss structure files
     win_size = args.winsize
+    out_path = args.output                                    # To be added to outfile
     if win_size%2 == 0:                                       # Break it if entered number not odd
         sys.exit("Error: Window size must be an odd number!!!")
 
@@ -173,30 +177,45 @@ if __name__ == '__main__':
     marginal_prob_R = df_R_count/float(df_all_SS['tot'])
     marginal_prob_ss = df_all_SS/float(df_all_SS['tot'])
 
-    print('\n')
-    print("R_H") 
-    display(probabilities_H)
+    # print('\n')
+    # print("R_H") 
+    # display(probabilities_H)
     
-    print('\n')
-    print("R_E")
-    display(probabilities_E)
+    # print('\n')
+    # print("R_E")
+    # display(probabilities_E)
     
-    print('\n')
-    print("R_C")
-    display(probabilities_C)
-    print('\n')
+    # print('\n')
+    # print("R_C")
+    # display(probabilities_C)
+    # print('\n')
     
-    print("Marginal probablilities of residues")
-    display(marginal_prob_R)
+    # print("Marginal probablilities of residues")
+    # display(marginal_prob_R)
 
-    print('\n')
-    print('Marginal probability of conformations')
+    # print('\n')
+    # print('Marginal probability of conformations')
     
-    display(marginal_prob_ss)
-    print('\n')
+    # display(marginal_prob_ss)
+    # print('\n')
     
-    # print(time.clock())
+    # print("--- %s seconds ---" % (time.time() - start_time))
+    elapsed_seconds = float(time.time() - start_time)
+    if elapsed_seconds > 60:
+        minutes = elapsed_seconds/60
+        print("--- %s minutes ---" % minutes)
+    else:
+        print("--- %s seconds ---" % (time.time() - start_time))
+
+    # Saving dfs holding probabilities of R in S and #R to csv
+    probabilities_H.to_csv(out_path+'gor_training_out_H.csv')
+    probabilities_E.to_csv(out_path+'gor_training_out_E.csv')
+    probabilities_C.to_csv(out_path+'gor_training_out_C.csv')
+    marginal_prob_R.to_csv(out_path+'gor_training_out_marg_prob_R.csv')
     
-    
-    print("--- %s seconds ---" % (time.time() - start_time))
-    
+    # Df holding total frequecies of SS has a different format --> saving it to sepparate df
+    marginal_prob_ss.to_csv(out_path+'gor_training_output_SS.csv')
+
+    # win_size to be passed to prediction.py
+    win_size_array = np.array([win_size])
+    np.savetxt(os.path.join(out_path, 'win_size.txt'), win_size_array)
