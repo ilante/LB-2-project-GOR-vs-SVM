@@ -1,10 +1,10 @@
 #!/anaconda3/bin/python
 import sys, os, glob
 import numpy as np
-# To ensure that non of the outputs are truncated with '...'
+# To ensure that non of the numpy outputs are truncated with '...'
 np.set_printoptions(threshold=np.inf)
 import pandas as pd
-# To ensure that non of the outputs are truncated with '...'
+# To ensure that non of the pandas outputs are truncated with '...'
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
@@ -56,9 +56,9 @@ def predict_ss(H, E, C, marg_p_R, marg_p_SS, query_profile, win_size):
         I_C = weights * log_C
         
         # Summing up the result of the information function
-        res_H = I_H.values.sum()
-        res_E = I_E.values.sum()
-        res_C = I_C.values.sum()
+        res_H = I_H.sum()
+        res_E = I_E.sum()
+        res_C = I_C.sum()
         
         # Creating dict to assign SS when given the maximum
         i_dict = {res_H:'H', res_E:'E', res_C:'C'}
@@ -105,24 +105,24 @@ args = parser.parse_args()
 
 if __name__ == "__main__":
     #---------------------------------------------------------------------------------------------------------------------------
-    # Loading GOR model --> 5 DF
+    # Loading GOR model --> 4 np.array and 1 pd.df
     #---------------------------------------------------------------------------------------------------------------------------
     model_path = args.model
     #'/Users/ila/01-Unibo/02_Lab2/files_lab2_project/all_data/outputs/gor_train_out/' # path to each of the "gor_training_output_XXX.csv" or add to argparse???
 
-    df_H = pd.read_csv(os.path.join(model_path,'gor_training_out_H.csv'), index_col=[0])     # index_col indicates that first column is the index
-    df_E = pd.read_csv(os.path.join(model_path,'gor_training_out_E.csv'), index_col=[0])
-    df_C = pd.read_csv(os.path.join(model_path,'gor_training_out_C.csv'), index_col=[0])
-    df_marg_p_R = pd.read_csv(os.path.join(model_path,'gor_training_out_marg_prob_R.csv'), index_col=[0])
-    SS_df = pd.read_csv(os.path.join(model_path,'gor_training_output_SS.csv'), index_col=[0]) 
+    H = np.loadtxt(os.path.join(model_path,'gor_training_out_H'), dtype=np.float64)     # index_col indicates that first column is the index
+    E = np.loadtxt(os.path.join(model_path,'gor_training_out_E'), dtype=np.float64)
+    C = np.loadtxt(os.path.join(model_path,'gor_training_out_C'), dtype=np.float64)
+    df_marg_p_R = np.loadtxt(os.path.join(model_path,'gor_training_out_marg_prob_R'), dtype=np.float64)
+    SS_df = pd.read_csv(os.path.join(model_path,'gor_training_output_SS.csv'), index_col=[0])
     # loading win_size from training output
-    win_size = np.loadtxt(os.path.join(model_path,'win_size.txt'), dtype=np.int32)
+    win_size = np.loadtxt(os.path.join(model_path,'win_size'), dtype=np.int32)
     #---------------------------------------------------------------------------------------------------------------------------
     # Logtransforming --> to enable substraction and addition instead of division and mulitplication
     #---------------------------------------------------------------------------------------------------------------------------
-    log_H = np.log(df_H)
-    log_E = np.log(df_E)
-    log_C = np.log(df_C)
+    log_H = np.log(H)
+    log_E = np.log(E)
+    log_C = np.log(C)
     log_marg_p_R = np.log(df_marg_p_R)
     log_marg_p_SS = np.log(SS_df)
 

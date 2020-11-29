@@ -49,10 +49,11 @@ def read_clean_lines(infile1):
 
 def train_gor(profile_infile, ssfile, RH, RE, RC, total_R, total_SS, win_size):
     '''
-    Takes as input: (1) seq profile file (2) fasta like dssp file (3) dataframes comprising the gor model 
-    (RH, RE, RC, total_R and total_SS). The seq profile file (1) is read into np.array. The ss string is 
-    extracted from fasta like dssp file (2). The corresponding positions are incremented according to R 
-    in given conformation in each field. Returns the trained GOR model.
+    Takes as input: (1) seq profile file (2) fasta like dssp file (3) arrays comprising the gor model 
+    -> RH, RE, RC, total_R (all 4 np.arr) and total_SS which is a pd.df . The seq profile file (1) is 
+    read into np.array. The ss string is extracted from fasta like dssp file (2). The corresponding 
+    positions are incremented according to R in given conformation in each field. Returns the trained GOR model.
+    RH, RE, RC, total_SS as np.arr and total_SS as pd.df.
     '''
     # Loading profile_infile into np.array, need to indicate range 20 to get rid of last col containing 'nan'
     profile_arr = np.loadtxt(profile_infile, usecols=range(0,20), dtype=np.float64) 
@@ -145,30 +146,32 @@ if __name__ == '__main__':
     # Generating smaller array holding the total secondary structure count
     ss_array = np.zeros((1,4)) # array holds total n of R in H, E or C and one cell for the total amount as checksum
 
-    ###########################################################################################
-    # Convertin arrays to dataframes holding the counts of residue in conformation X --> R_X  #
-    ###########################################################################################
-    # pd.set_option('display.max_colwidth', None)
-    df_R_H = make_frequency_df(R_H)           
-    df_R_E = make_frequency_df(R_E)
-    df_R_C = make_frequency_df(R_C)
-    df_R_count = make_frequency_df(R_count)
-
+    ################################################################################################
+    # Converting ONLY ss_array to dataframe holding the total counts of SS in conformations H,E,C  #
+    ################################################################################################
     # generating smaller dataframe holding the total counts conformations
     df_all_SS = pd.DataFrame(data=ss_array, columns=['H', 'E', 'C', 'tot'], index= ['#S'])
     # print("HEC df")
     # print(df_all_SS)
     
-    
     # print("********"+'\n', pro_files)
     for i in range(len(pro_files)):
-        train_gor(pro_files[i], ss_files[i], df_R_H, df_R_E, df_R_C, df_R_count, df_all_SS, win_size)
+        train_gor(pro_files[i], ss_files[i], R_H, R_E, R_C, R_count, df_all_SS, win_size)
     
-    # Dividing each field of each matrix by the total ammount of residues used in the training
-    probabilities_H = df_R_H/float(df_all_SS['tot'])
-    probabilities_E = df_R_E/float(df_all_SS['tot'])
-    probabilities_C = df_R_C/float(df_all_SS['tot'])
-    marginal_prob_R = df_R_count/float(df_all_SS['tot'])
+    # --------------------------------------------------------------------------------------------------------
+    # Generating probablilities by dividing each row R_SS_d by the sum of the corresponding row d in R_count.
+    # (d goes from 0 - 16). Returns probablilites of RH, RE, RC. All arrays H, E, C and R need to be divided by 
+    # the sum of each row in R!
+    # --------------------------------------------------------------------------------------------------------
+    sum_R = R_count.sum(axis=1).reshape(win_size, 1) # Computing sum of each row --> series
+    probabilities_H = np.divide(R_H, sum_R)
+    probabilities_E = np.divide(R_E, sum_R)
+    probabilities_C = np.divide(R_C, sum_R)
+    marginal_prob_R = np.divide(R_count, sum_R)
+    # probabilities_H = df_R_H/float(df_all_SS['tot'])
+    # probabilities_E = df_R_E/float(df_all_SS['tot'])
+    # probabilities_C = df_R_C/float(df_all_SS['tot'])
+    #marginal_prob_R = df_R_count/float(df_all_SS['tot'])
     marginal_prob_ss = df_all_SS/float(df_all_SS['tot'])
 
     # print('\n')
@@ -201,15 +204,15 @@ if __name__ == '__main__':
     else:
         print("--- %s seconds ---" % (time.time() - start_time))
 
-    # Saving dfs holding probabilities of R in S and #R to csv
-    probabilities_H.to_csv(out_path+'gor_training_out_H.csv')
-    probabilities_E.to_csv(out_path+'gor_training_out_E.csv')
-    probabilities_C.to_csv(out_path+'gor_training_out_C.csv')
-    marginal_prob_R.to_csv(out_path+'gor_training_out_marg_prob_R.csv')
-    
-    # Df holding total frequecies of SS has a different format --> saving it to sepparate df
-    marginal_prob_ss.to_csv(out_path+'gor_training_output_SS.csv')
+    # Saving arrays holding probabilities of R in S and #R to csv
+    np.savetxt(os.path.join(out_path,'gor_training_out_H'), probabilities_H) # saving to txt(out_path+'gor_training_out_H.csv')
+    np.savetxt(os.path.join(out_path,'gor_training_out_E'), probabilities_E)
+    np.savetxt(os.path.join(out_path,'gor_training_out_C'), probabilities_C)
+    np.savetxt(os.path.join(out_path,'gor_training_out_marg_prob_R'), marginal_prob_R)
+
+    # Data Frame (!) holding total frequecies of SS has a different format --> saing it to sepparate df
+    marginal_prob_ss.to_csv(os.path.join(out_path,'gor_training_output_SS.csv'))
 
     # win_size to be passed to prediction.py
     win_size_array = np.array([win_size])
-    np.savetxt(os.path.join(out_path, 'win_size.txt'), win_size_array)
+    np.savetxt(os.path.join(out_path, 'win_size'), win_size_array)
