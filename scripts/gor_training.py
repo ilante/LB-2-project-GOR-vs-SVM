@@ -16,12 +16,6 @@ import time
 
 start_time = time.time()
 
-'''For the first try: Make function: Takes fasta and dssp sequence as parameters as input.'''
-# d1g2ya_.dssp
-# d1g2ya_.fasta from training files.
-
-# win_size = 3 # has to be an odd number pass through ARGPARSE later
-
 def make_zero_array(window_size):
     '''
     Takes window size as arguments.
