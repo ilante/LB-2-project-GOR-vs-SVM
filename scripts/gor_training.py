@@ -38,9 +38,17 @@ def make_frequency_df(zeroarray):
     freq_df = pd.DataFrame(data = zeroarray,  columns=header_col) # index=row_names
     return freq_df
 
+def read_clean_all(infile1):
+    ''' Reads ALL lines from a file. Returns string of second line. The '\n' is stripped.'''
+    with open(infile1, 'r') as rfile:
+        newline_list = rfile.readlines()
+        clean =[]
+        for l in newline_list:
+            clean.append(l.rstrip())
+        return clean
 
 def read_clean_lines(infile1):
-    ''' Reads all lines from a file. Returns string of second line. The '\n' is stripped.'''
+    ''' Reads ONLY second line from a file. Returns string of second line. The '\n' is stripped.'''
     with open(infile1, 'r') as rfile:
         newline_list = rfile.readlines()
         cleanstring = newline_list[1].rstrip()
@@ -99,7 +107,6 @@ def train_gor(profile_infile, ssfile, RH, RE, RC, total_R, total_SS, win_size):
         
     return RH, RE, RC, total_R, total_SS
 
-
 def listdir_nohidden(path):
     '''
     To ignore hidden files from os.listdir.
@@ -110,26 +117,27 @@ def listdir_nohidden(path):
 
 parser = argparse.ArgumentParser(description='Train GOR model')
 parser.add_argument('-p', '--profile', type=str, metavar='', required=True, help='Path to directory containing all profile files needed for training.')
-parser.add_argument('-s', '--secondarystructure', type=str, metavar='', required=True, help='Path to directory containing all secondary structures in fasta-like format needed for training.')
-parser.add_argument('-w', '--winsize', type=int, metavar='', required=True, help='Window size of the sliding window for training the gor molel. Must be **ODD** numbered integer!') 
+parser.add_argument('-s', '--secondarystructure', metavar='', type=str, required=True, help='Path to directory containing all secondary structures in fasta-like format needed for training.')
+parser.add_argument('-i', '--ids', type=str, metavar='', required=False, help='Path to file containing IDs of current training set.')
+parser.add_argument('-w', '--winsize', type=int,  metavar='', default=17, nargs='?', const=17, help='Window size of the sliding window for training the gor model. Default value = 17. Must be **ODD** numbered integer!') 
 parser.add_argument('-o', '--output', type=str, metavar='', required=True, help='Path to training output directory.')
 args = parser.parse_args()
 
-
 if __name__ == '__main__':
     
-    # 2 lists --> to loop on. Need to call function to loop on both profile files and ss list.
-    pro_files = listdir_nohidden(args.profile)                # Creating list of all fasta files in folder
-    ss_files = listdir_nohidden(args.secondarystructure)      # Creating list of all ss structure files
+    # 3 lists --> to loop on. 1: Training splits 2. profile files and 3. ss list.
+    trainsplits = listdir_nohidden(args.ids).sort()   # Creating list of all cross validation lists 0..4
+    pro_path = args.profile                # Creating list of all fasta files in folder
+    ss_path = args.secondarystructure      # Creating list of all ss structure files
     win_size = args.winsize
     out_path = args.output                                    # To be added to outfile
     if win_size%2 == 0:                                       # Break it if entered number not odd
         sys.exit("Error: Window size must be an odd number!!!")
-
-
+   
+    id_l = read_clean_all(args.ids)
     # listdir: returns arbitrary order --> need to sort lists before continuing --> MUST .sort()
-    pro_files.sort()
-    ss_files.sort()
+    # pro_files.sort()
+    # ss_files.sort()
     # print(pro_files)
     # print('\n')
     # print(ss_files)
@@ -155,8 +163,14 @@ if __name__ == '__main__':
     # print(df_all_SS)
     
     # print("********"+'\n', pro_files)
-    for i in range(len(pro_files)):
-        train_gor(pro_files[i], ss_files[i], R_H, R_E, R_C, R_count, df_all_SS, win_size)
+    # print(id_l)
+    for i in range(len(id_l)):
+        # print("id: ", id_l[i])
+        curr_profile = os.path.join(pro_path, id_l[i])+'.profile'
+        curr_ss = os.path.join(ss_path, id_l[i])+'.dssp'
+        # print('curr_profile', curr_profile)
+        # print('curr_ss', curr_ss)
+        train_gor(curr_profile, curr_ss, R_H, R_E, R_C, R_count, df_all_SS, win_size)
     
     # --------------------------------------------------------------------------------------------------------
     # Generating probablilities by dividing each row R_SS_d by the sum of the corresponding row d in R_count.
@@ -173,28 +187,6 @@ if __name__ == '__main__':
     # probabilities_C = df_R_C/float(df_all_SS['tot'])
     #marginal_prob_R = df_R_count/float(df_all_SS['tot'])
     marginal_prob_ss = df_all_SS/float(df_all_SS['tot'])
-
-    # print('\n')
-    # print("R_H") 
-    # display(probabilities_H)
-    
-    # print('\n')
-    # print("R_E")
-    # display(probabilities_E)
-    
-    # print('\n')
-    # print("R_C")
-    # display(probabilities_C)
-    # print('\n')
-    
-    # print("Marginal probablilities of residues")
-    # display(marginal_prob_R)
-
-    # print('\n')
-    # print('Marginal probability of conformations')
-    
-    # display(marginal_prob_ss)
-    # print('\n')
     
     # print("--- %s seconds ---" % (time.time() - start_time))
     elapsed_seconds = float(time.time() - start_time)
