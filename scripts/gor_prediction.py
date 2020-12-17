@@ -22,7 +22,7 @@ start_time = time.time() # To keep track of speed
 def predict_ss(H, E, C, marg_p_R, marg_p_SS, query_profile, win_size):
     '''
     Arguments H, E, C, marg_p_R & marg_p_SS are the log transformed model matrices used 
-    to prodict the secondary structure (ss). 
+    to predict the secondary structure (ss). 
     The query_profile is passed for prediction of its ss.
     Returns predicted ss as a string.
     '''
@@ -41,7 +41,8 @@ def predict_ss(H, E, C, marg_p_R, marg_p_SS, query_profile, win_size):
     #Counting lines of file to range on when sliding the window
     rows_count = profile_arr.shape[0]
 
-    # Matrices holding the 'log term' of the information function. The inf fct = incomplete -- missing weight as factor!
+    # Matrices holding the 'log term' of the information function --> log P(R,S)/(P(S)P(R)) = P(R,S) - (P(S) + P(R)). 
+    # The inf fct = incomplete -- missing weight as factor!
     log_H = H - (marg_p_SS['H'].values[0] + marg_p_R)
     log_E = E - (marg_p_SS['E'].values[0] + marg_p_R)
     log_C = C - (marg_p_SS['C'].values[0] + marg_p_R)
@@ -50,7 +51,7 @@ def predict_ss(H, E, C, marg_p_R, marg_p_SS, query_profile, win_size):
         # Iterating over the overhang_profile_arr generating new window for each iteration
         # The window is a matrix containing all the weights. Its a slice from index i up to i+window_size
         weights = overhang_profile_arr[i:(i+win_size)]
-        # Completing *information function* for each conformation
+        # Completing *information function* for each conformation by multiplying the weight obtained from PW
         I_H = weights * log_H
         I_E = weights * log_E
         I_C = weights * log_C
