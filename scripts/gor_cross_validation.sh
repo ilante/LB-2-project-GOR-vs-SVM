@@ -36,7 +36,7 @@ done
 #####################################################################################################
 # usage: gor_prediction.py [-h] -m  -q  [-i] -o
 
-# Train GOR model
+# Test GOR model
 
 # optional arguments:
 #   -h, --help            show this help message and exit
